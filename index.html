@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Point-of-Use Data Capture</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .form-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+            border-color: #3B82F6;
+        }
+        input[type='number']::-webkit-outer-spin-button,
+        input[type='number']::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type='number'] {
+            -moz-appearance: textfield;
+        }
+        .modal-backdrop {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-content {
+            transition: transform 0.3s ease-in-out;
+        }
+        .btn-gemini {
+            background: linear-gradient(to right, #4285F4, #9B72F5);
+        }
+        .btn-gemini:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-4xl mx-auto p-4 md:p-8">
+        <div class="bg-white rounded-2xl shadow-lg">
+            <!-- Header -->
+            <div class="bg-gray-800 text-white p-6 rounded-t-2xl flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold">Point-of-Use Data Capture</h1>
+                    <p class="text-gray-300 mt-1">Quickly record items taken from the storeroom.</p>
+                </div>
+                <button id="adminBtn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
+                    Admin
+                </button>
+            </div>
+
+            <!-- Main Content -->
+            <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Form Section -->
+                <div class="space-y-6">
+                    <form id="captureForm">
+                        <!-- Staff ID -->
+                        <div>
+                            <label for="staffId" class="block text-sm font-medium text-gray-700 mb-1">Staff ID</label>
+                            <input type="text" id="staffId" name="staffId" class="form-input w-full px-4 py-3 bg-gray-50 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150" placeholder="Scan or enter your ID" required>
+                        </div>
+
+                        <!-- Item ID -->
+                        <div>
+                            <label for="itemId" class="block text-sm font-medium text-gray-700 mb-1">Item SKU / Barcode</label>
+                            <input type="text" id="itemId" name="itemId" class="form-input w-full px-4 py-3 bg-gray-50 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150" placeholder="Scan item barcode" required>
+                            <p id="lowStockWarning" class="text-sm text-red-600 font-medium mt-2 hidden">
+                                <span class="font-bold">Low Stock!</span> Current inventory is critically low.
+                            </p>
+                        </div>
+
+                        <!-- Quantity -->
+                        <div>
+                            <label for="quantity" class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                            <div class="flex items-center">
+                                <button type="button" id="decrement" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold px-5 py-3 rounded-l-lg transition duration-150">-</button>
+                                <input type="number" id="quantity" name="quantity" value="1" min="1" class="form-input w-full text-center px-4 py-3 bg-white border-t border-b border-gray-300 focus:ring-blue-500 focus:border-blue-500 transition duration-150">
+                                <button type="button" id="increment" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold px-5 py-3 rounded-r-lg transition duration-150">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition duration-150 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                Record Usage
+                            </button>
+                             <button type="button" id="geminiBtn" disabled class="w-full btn-gemini text-white font-bold py-4 px-6 rounded-lg text-lg transition duration-150 flex items-center justify-center">
+                                ✨ Suggest Reorder Note
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Recent Activity Section -->
+                <div class="bg-gray-50 p-6 rounded-lg">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h2>
+                    <div id="activityLogContainer" class="h-96 overflow-y-auto">
+                        <ul id="activityLog" class="space-y-3">
+                            <li id="placeholder" class="text-center text-gray-500 pt-16">No items recorded yet.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Success Message -->
+        <div id="successMessage" class="fixed top-5 right-5 bg-green-500 text-white py-3 px-6 rounded-lg shadow-xl opacity-0 translate-y-4 transition-all duration-300">
+            Item recorded successfully!
+        </div>
+    </div>
+
+    <!-- Gemini Modal -->
+    <div id="geminiModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 modal-backdrop opacity-0 pointer-events-none">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8 modal-content transform scale-95">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">✨ Reorder Suggestion</h2>
+                <button id="closeModalBtn" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">&times;</button>
+            </div>
+            <div id="modalContent">
+                 <div id="loader" class="text-center py-8">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                    <p class="mt-4 text-gray-600">Generating note...</p>
+                </div>
+                <textarea id="geminiResult" class="w-full h-48 p-3 border border-gray-300 rounded-lg bg-gray-50 resize-none hidden" readonly></textarea>
+                <p id="geminiErrorMessage" class="text-red-500 hidden"></p>
+            </div>
+            <div class="mt-6 flex gap-4">
+                <button id="copyBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150 hidden">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Admin Password Modal -->
+    <div id="adminModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 modal-backdrop opacity-0 pointer-events-none">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 modal-content transform scale-95">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Admin Access</h2>
+                <button id="closeAdminModalBtn" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">&times;</button>
+            </div>
+            <form id="adminLoginForm">
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="password" class="form-input w-full px-4 py-3 bg-gray-50 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150" required>
+                    <p id="passwordError" class="text-sm text-red-600 mt-2 hidden">Incorrect password. Please try again.</p>
+                </div>
+                <div class="mt-6">
+                    <button type="submit" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-4 rounded-lg transition duration-150">Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Admin Controls Panel (hidden by default, shown in modal) -->
+    <div id="adminControlsModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 modal-backdrop opacity-0 pointer-events-none">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 modal-content transform scale-95">
+             <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Admin Controls</h2>
+                <button id="closeAdminControlsBtn" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">&times;</button>
+            </div>
+            <p class="text-gray-600 mb-4">Download the full transaction log as a CSV file.</p>
+            <button id="downloadLogBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.022 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" /></svg>
+                Download Log
+            </button>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Mock Inventory Database
+            const inventory = {
+                'SKU-1001': { name: 'Sterile Gauze Pads (4x4)', stock: 8, threshold: 5 },
+                'SKU-1002': { name: 'Saline Solution 500ml', stock: 15, threshold: 10 },
+                'SKU-1003': { name: 'Disposable Syringes (10ml)', stock: 52, threshold: 50 },
+                'SKU-1004': { name: 'Medical Tape Rolls', stock: 25, threshold: 15 },
+                'SKU-1005': { name: 'IV Catheter (22 Gauge)', stock: 4, threshold: 5 },
+            };
+            let lastLowStockItem = null;
+            const transactionLog = []; // New: To store all transactions
+
+            // --- UI Elements ---
+            const captureForm = document.getElementById('captureForm');
+            const staffIdInput = document.getElementById('staffId');
+            const itemIdInput = document.getElementById('itemId');
+            const quantityInput = document.getElementById('quantity');
+            const decrementBtn = document.getElementById('decrement');
+            const incrementBtn = document.getElementById('increment');
+            const activityLog = document.getElementById('activityLog');
+            const placeholder = document.getElementById('placeholder');
+            const successMessage = document.getElementById('successMessage');
+            const lowStockWarning = document.getElementById('lowStockWarning');
+            const geminiBtn = document.getElementById('geminiBtn');
+            const adminBtn = document.getElementById('adminBtn');
+
+            // --- Modal Elements ---
+            const geminiModal = document.getElementById('geminiModal');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const geminiResult = document.getElementById('geminiResult');
+            const copyBtn = document.getElementById('copyBtn');
+            const loader = document.getElementById('loader');
+            const geminiErrorMessage = document.getElementById('geminiErrorMessage');
+            
+            // --- Admin Elements ---
+            const adminModal = document.getElementById('adminModal');
+            const closeAdminModalBtn = document.getElementById('closeAdminModalBtn');
+            const adminLoginForm = document.getElementById('adminLoginForm');
+            const passwordInput = document.getElementById('password');
+            const passwordError = document.getElementById('passwordError');
+            const adminControlsModal = document.getElementById('adminControlsModal');
+            const closeAdminControlsBtn = document.getElementById('closeAdminControlsBtn');
+            const downloadLogBtn = document.getElementById('downloadLogBtn');
+            const ADMIN_PASSWORD = 'Admin2025!'; // Super secret password
+
+            // --- Event Listeners ---
+            captureForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const staffId = staffIdInput.value.trim();
+                const itemId = itemIdInput.value.trim();
+                const quantity = parseInt(quantityInput.value, 10);
+
+                if (!staffId || !itemId || quantity < 1) return;
+
+                logTransaction(staffId, itemId, quantity);
+                addActivity(staffId, itemId, quantity);
+                updateInventory(itemId, quantity);
+                showSuccessMessage();
+
+                itemIdInput.value = '';
+                quantityInput.value = '1';
+                itemIdInput.focus();
+            });
+            
+            itemIdInput.addEventListener('input', () => {
+                lowStockWarning.classList.add('hidden');
+                geminiBtn.disabled = true;
+                lastLowStockItem = null;
+            });
+
+            decrementBtn.addEventListener('click', () => {
+                let val = parseInt(quantityInput.value, 10);
+                if (val > 1) quantityInput.value = val - 1;
+            });
+
+            incrementBtn.addEventListener('click', () => {
+                let val = parseInt(quantityInput.value, 10);
+                quantityInput.value = val + 1;
+            });
+
+            // Gemini Modal listeners
+            geminiBtn.addEventListener('click', () => {
+                if (lastLowStockItem) openModal(geminiModal, openModalAndGenerateNote);
+            });
+            closeModalBtn.addEventListener('click', () => closeModal(geminiModal));
+            
+            copyBtn.addEventListener('click', () => {
+                geminiResult.select();
+                try {
+                    document.execCommand('copy');
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(() => { copyBtn.textContent = 'Copy to Clipboard'; }, 2000);
+                } catch (err) { console.error('Failed to copy text: ', err); }
+            });
+
+            // Admin features listeners
+            adminBtn.addEventListener('click', () => openModal(adminModal));
+            closeAdminModalBtn.addEventListener('click', () => closeModal(adminModal));
+            adminLoginForm.addEventListener('submit', handleAdminLogin);
+            closeAdminControlsBtn.addEventListener('click', () => closeModal(adminControlsModal));
+            downloadLogBtn.addEventListener('click', downloadTransactionsAsCSV);
+
+            // Close modals on backdrop click
+            [geminiModal, adminModal, adminControlsModal].forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) closeModal(modal);
+                });
+            });
+
+            // --- Main Functions ---
+
+            function logTransaction(staffId, itemId, quantity) {
+                const transaction = {
+                    timestamp: new Date().toISOString(),
+                    staffId,
+                    itemId,
+                    itemName: inventory[itemId] ? inventory[itemId].name : 'Unknown Item',
+                    quantity,
+                };
+                transactionLog.push(transaction);
+                console.log('Transaction logged:', transaction);
+            }
+
+            function updateInventory(itemId, quantityUsed) {
+                const item = inventory[itemId];
+                if (!item) {
+                    console.warn(`Item ${itemId} not found in inventory.`);
+                    return;
+                }
+                item.stock -= quantityUsed;
+                if (item.stock < 0) item.stock = 0;
+                console.log(`Updated stock for ${item.name}: ${item.stock}`);
+
+                if (item.stock <= item.threshold) {
+                    lowStockWarning.classList.remove('hidden');
+                    geminiBtn.disabled = false;
+                    lastLowStockItem = {...item, sku: itemId};
+                } else {
+                    lowStockWarning.classList.add('hidden');
+                    geminiBtn.disabled = true;
+                    lastLowStockItem = null;
+                }
+            }
+
+            function addActivity(staffId, itemId, quantity) {
+                if (placeholder) placeholder.style.display = 'none';
+                const listItem = document.createElement('li');
+                listItem.className = 'bg-white p-4 rounded-lg shadow-sm flex justify-between items-center';
+                const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                const itemName = inventory[itemId] ? inventory[itemId].name : itemId;
+
+                listItem.innerHTML = `
+                    <div>
+                        <p class="font-semibold text-gray-800">${itemName}</p>
+                        <p class="text-sm text-gray-500">Recorded by ${staffId} at ${time}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-bold text-lg text-blue-600">${quantity}</span>
+                        <p class="text-xs text-gray-400">QTY</p>
+                    </div>`;
+                activityLog.prepend(listItem);
+            }
+
+            function showSuccessMessage() {
+                successMessage.classList.remove('opacity-0', 'translate-y-4');
+                setTimeout(() => {
+                    successMessage.classList.add('opacity-0', 'translate-y-4');
+                }, 2000);
+            }
+
+            // --- Modal Helpers ---
+            function openModal(modal, onOpenCallback) {
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                modal.querySelector('.modal-content').classList.remove('scale-95');
+                if (onOpenCallback) onOpenCallback();
+            }
+
+            function closeModal(modal) {
+                modal.classList.add('opacity-0');
+                modal.querySelector('.modal-content').classList.add('scale-95');
+                setTimeout(() => {
+                    modal.classList.add('pointer-events-none');
+                }, 300);
+            }
+
+            // --- Admin Functions ---
+            function handleAdminLogin(e) {
+                e.preventDefault();
+                if (passwordInput.value === ADMIN_PASSWORD) {
+                    passwordError.classList.add('hidden');
+                    passwordInput.value = '';
+                    closeModal(adminModal);
+                    openModal(adminControlsModal);
+                } else {
+                    passwordError.classList.remove('hidden');
+                }
+            }
+
+            function downloadTransactionsAsCSV() {
+                if (transactionLog.length === 0) {
+                    alert('No transactions to download.');
+                    return;
+                }
+                const headers = ['Timestamp', 'Staff ID', 'Item SKU', 'Item Name', 'Quantity'];
+                const csvRows = [headers.join(',')];
+                
+                for (const row of transactionLog) {
+                    const values = [
+                        row.timestamp,
+                        row.staffId,
+                        row.itemId,
+                        `"${row.itemName.replace(/"/g, '""')}"`, // Handle commas in names
+                        row.quantity
+                    ];
+                    csvRows.push(values.join(','));
+                }
+
+                const csvString = csvRows.join('\n');
+                const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                const filename = `transaction_log_${new Date().toISOString().split('T')[0]}.csv`;
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+
+            // --- Gemini API Functions ---
+            function openModalAndGenerateNote() {
+                loader.style.display = 'block';
+                geminiResult.classList.add('hidden');
+                geminiErrorMessage.classList.add('hidden');
+                copyBtn.classList.add('hidden');
+                generateNoteWithGemini();
+            }
+
+            async function generateNoteWithGemini() {
+                if (!lastLowStockItem) return;
+
+                const prompt = `You are a clinical supply chain assistant. Write a brief, professional, and clear note to the inventory manager to request a reorder for an item that is running low.
+                Item SKU: ${lastLowStockItem.sku}
+                Item Name: ${lastLowStockItem.name}
+                Current Stock: ${lastLowStockItem.stock}
+                Reorder Threshold: ${lastLowStockItem.threshold}
+                Keep the note concise and to the point.`;
+
+                try {
+                    const generatedText = await callGeminiApi(prompt);
+                    loader.style.display = 'none';
+                    geminiResult.value = generatedText;
+                    geminiResult.classList.remove('hidden');
+                    copyBtn.classList.remove('hidden');
+                } catch (error) {
+                    console.error("Error calling Gemini API:", error);
+                    loader.style.display = 'none';
+                    geminiErrorMessage.textContent = 'Failed to generate note. Please try again.';
+                    geminiErrorMessage.classList.remove('hidden');
+                }
+            }
+            
+            async function callGeminiApi(prompt, retries = 3, delay = 1000) {
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                
+                const payload = { contents: [{ parts: [{ text: prompt }] }] };
+
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
+                        const result = await response.json();
+                        if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                            return result.candidates[0].content.parts[0].text;
+                        } else {
+                            throw new Error("Invalid response structure from API");
+                        }
+                    } catch (error) {
+                        if (i === retries - 1) throw error;
+                        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+                    }
+                }
+            }
+            
+            staffIdInput.focus();
+        });
+    </script>
+</body>
+</html>
